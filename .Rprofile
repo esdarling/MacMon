@@ -9,3 +9,5 @@ library(car)
 library(reports)
 library(tidyr)
 print("loaded from MacMon .Rprofile")
+
+#install.packages("tidyr")
