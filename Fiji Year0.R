@@ -74,8 +74,6 @@ levels(as.factor(benthic$Genus_clean))
 
 #recode missing hardcoral w/genus to NA
 
-
-
 #filter hardcorals out and calculate percent cover
 #apple-shift-m is shortcut for pipes %>%
 hc <- benthic %>%
@@ -135,6 +133,94 @@ SSI <- SSI %>%
   arrange(desc(meanSSI))
 
 write.csv(SSI, "SSI by site.csv", row.names = FALSE)
+
+
+
+
+
+#fish bleaching susceptibility
+setwd("/Users/emilydarling/Dropbox/4_WCS MacMon/1_MacMon data/Fiji/R_Emily/susceptibility files")
+d <- read.csv("Fish climate vulnerability for Emily.csv", 
+              header = TRUE, stringsAsFactors = FALSE, strip.white = TRUE) 
+head(d)
+nrow(d)
+str(d) 
+hist(d$Suscept_PopDecline)
+
+#relative abundance of each species summed across Graham vulnerability index
+setwd("/Users/emilydarling/Dropbox/4_WCS MacMon/1_MacMon data/Fiji/R_Emily/Fiji data")
+fish <- read.csv("FIJI_Fish_Final.csv", 
+              header = TRUE, stringsAsFactors = FALSE, strip.white = TRUE) 
+head(fish)
+nrow(fish)
+
+#22 ecological sites
+fish %>%
+  select(Location,Site) %>%
+  distinct(Location, Site)
+
+#calculate spp relative abundance at each transect
+fish <- fish %>%
+  group_by(Location,Site,Transect) %>%
+  mutate(totalAbund = sum(Abundance)) %>%
+  mutate(relAbunda = Abundance / totalAbund)
+head(fish)
+
+#check genus merge from taxa susceptibility - names all good in taxa file? 
+fish2 <- left_join(fish,d[,c(4,6)],by = "Species")
+head(fish2)
+
+#ungroup from Location, Site etc
+#select columns I want to use
+check <- fish2 %>%
+  ungroup() %>%
+  select(Species, Suscept_PopDecline) %>%
+  distinct(Species) %>%
+  arrange(Species)
+#write.csv(check, "check Fiji fish merge with Graham.csv", row.names= FALSE)
+
+#merge is good
+#how much of community has a climate vuln score? 
+fish3 <- fish2 %>%
+  group_by(Location,Site,Transect) %>%
+  filter(Suscept_PopDecline > 0) %>%
+  mutate(Abund_withVuln = sum(Abundance)) %>%
+  mutate(PercAbund_withVuln = Abund_withVuln / totalAbund)
+
+#~25% of fish community included in climate vulnerability analysis (Fiji transects)
+hist(fish3$PercAbund_withVuln)
+mean(fish3$PercAbund_withVuln); sd(fish3$PercAbund_withVuln)
+
+#calculate site susceptibility index (SSI)
+fish3$relAbund_x_suscept = fish3$relAbund * fish3$Suscept_PopDecline
+
+hist(fish3$relAbund_x_suscept)
+min(fish3$relAbund_x_suscept); max(fish3$relAbund_x_suscept)
+
+fishvuln <- fish3 %>%
+  group_by(Location,Site,Transect) %>%
+  #sum across species to a transect
+  summarize(sumFishVuln = sum(relAbund_x_suscept, na.rm = TRUE)) %>%
+  group_by(Location,Site)  %>%
+  #average across transects to a site
+  summarize(sumFishVuln = mean(sumFishVuln, na.rm = TRUE)) 
+
+head(fishvuln)            
+hist(fishvuln$sumFishVuln)   
+
+write.csv(fishvuln, "fish vulnerability x site.csv", row.names= FALSE)
+
+#catch sensitivity to bleaching
+#WAY TOO COMPLICATED for a donor indicator?
+
+#occupational mobility
+#Ranking occupations is problematic
+
+
+#MSL PCA
+
+
+
 
 
 

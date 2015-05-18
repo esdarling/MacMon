@@ -8,6 +8,7 @@ library(dplyr)
 library(car)
 library(reports)
 library(tidyr)
+library(reshape2)
 print("loaded from MacMon .Rprofile")
 
 #install.packages("tidyr")
