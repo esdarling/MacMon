@@ -10,7 +10,7 @@
 # - needs benthic data on coral community composition
 
 #load taxa susceptibility
-setwd("/Users/emilydarling/Dropbox/4_WCS MacMon/1_MacMon data/R_Emily/Fiji/susceptibility files")
+setwd("/Users/emilydarling/Dropbox/4_WCS MacMon/1_MacMon data/Fiji/R_Emily")
 d <- read.csv("FIJI_DataEntry_2012_TaxaSuscept.csv", header = TRUE, stringsAsFactors = FALSE, strip.white = TRUE) 
 names(d)[1] <- "Genus" 
 head(d)
@@ -37,7 +37,7 @@ d$suscept_score <- recode(d$suscept_cat,"'High' = '2';'Moderate'='1';'Low' = '0'
 
 
 #load benthic community data
-setwd("/Users/emilydarling/Dropbox/4_WCS MacMon/1_MacMon data/R_Emily/Fiji/data")
+setwd("/Users/emilydarling/Dropbox/4_WCS MacMon/1_MacMon data/Fiji/R_Emily")
 benthic <- read.csv("FIJI_Benthic_Final_1042015.csv", header = TRUE, stringsAsFactors = FALSE, strip.white = TRUE) 
 
 #check n=100 Point USING PIPES!!!
@@ -102,7 +102,7 @@ head(hc)
 
 #calculate site susceptibility index (SSI)
 hc$relCover_x_suscept = hc$relCover * hc$suscept_score
-head(hc)
+
 hc <- hc %>%
   group_by(Location,Site,Transect) %>%
   mutate(SSI = sum(relCover_x_suscept, na.rm = TRUE))
@@ -124,20 +124,22 @@ hist(SSI$sumSuscept)
 #pipe to site-level SSI for MacMon indicator
 #rescale SSI 0 to 1
 SSI <- SSI %>%
+  mutate(SSI = (sumSuscept - min(sumSuscept)) / (max(sumSuscept) - min(sumSuscept))) %>%
+  group_by(Location, Site) %>%
+  #summarize(SSI = mean(SSI)) %>%
+  #group_by(Location) %>%
+  summarize(meanSSI = mean(SSI), sdSSI = sd(SSI)) %>%
   ungroup() %>%
-  mutate(SSI_scale = (sumSuscept - min(sumSuscept)) / (max(sumSuscept) - min(sumSuscept))) %>%
-  group_by(Location) %>%
-  summarize(meanSSI = mean(SSI_scale), sdSSI = sd(SSI_scale)) 
+  arrange(desc(meanSSI))
+
+write.csv(SSI, "SSI by site.csv", row.names = FALSE)
 
 
-## SSI is coral bleaching susceptibility
-SSI
-setwd("/Users/emilydarling/Dropbox/4_WCS MacMon/1_MacMon data/R_Emily/Fiji/output")
-write.csv(SSI, "SSI by location.csv", row.names = FALSE)
+
 
 
 #fish bleaching susceptibility
-setwd("/Users/emilydarling/Dropbox/4_WCS MacMon/1_MacMon data/R_Emily/Fiji/susceptibility files")
+setwd("/Users/emilydarling/Dropbox/4_WCS MacMon/1_MacMon data/Fiji/R_Emily/susceptibility files")
 d <- read.csv("Fish climate vulnerability for Emily.csv", 
               header = TRUE, stringsAsFactors = FALSE, strip.white = TRUE) 
 head(d)
@@ -146,7 +148,7 @@ str(d)
 hist(d$Suscept_PopDecline)
 
 #relative abundance of each species summed across Graham vulnerability index
-setwd("/Users/emilydarling/Dropbox/4_WCS MacMon/1_MacMon data/R_Emily/Fiji/data")
+setwd("/Users/emilydarling/Dropbox/4_WCS MacMon/1_MacMon data/Fiji/R_Emily/Fiji data")
 fish <- read.csv("FIJI_Fish_Final.csv", 
               header = TRUE, stringsAsFactors = FALSE, strip.white = TRUE) 
 head(fish)
@@ -199,11 +201,11 @@ fishvuln <- fish3 %>%
   group_by(Location,Site,Transect) %>%
   #sum across species to a transect
   summarize(sumFishVuln = sum(relAbund_x_suscept, na.rm = TRUE)) %>%
-  group_by(Location)  %>%
+  group_by(Location,Site)  %>%
   #average across transects to a site
   summarize(sumFishVuln = mean(sumFishVuln, na.rm = TRUE)) 
 
-fishvuln          
+head(fishvuln)            
 hist(fishvuln$sumFishVuln)   
 
 write.csv(fishvuln, "fish vulnerability x site.csv", row.names= FALSE)
@@ -216,128 +218,6 @@ write.csv(fishvuln, "fish vulnerability x site.csv", row.names= FALSE)
 
 
 #MSL PCA
-
-setwd("/Users/emilydarling/Dropbox/4_WCS MacMon/1_MacMon data/R_Emily/Fiji/data")
-d <- read.csv("HouseholdSurveys_MSL question.csv", header = TRUE, stringsAsFactors = FALSE, strip.white = TRUE) 
-head(d)
-nrow(d)
-
-#remove other & non 
-d <- d[,-c(16,17,24,25,31,36,40,47,53,59)]
-d <- na.omit(d)
-nrow(d)
-
-
-levels(as.factor(d$Village))
-
-
-indicators <- d[,c(3:44)]
-#check indicators will all zeros - need to remove
-#car battery, bicyclce, motorcycle, charcoal, tile, bamboo
-names(indicators)
-nrow(indicators)
-
-indicators2 <- indicators[,c(1:2,5:7,10:12,16,20,22:25,27:30,32,34,35,36,39:42)]
-names(indicators2)
-wealth.pca<-prcomp(indicators2, scale = TRUE, na.action = na.omit)
-
-summary(wealth.pca)
-wealth.pca
-biplot(wealth.pca)   
-
-d$wealth_PCA <- predict(wealth.pca)[,1]
-hist(d$wealth_PCA)   
-head(d)
-
-boxplot(d$wealth_PCA ~ d$Village)
-
-MSL <- d %>%
-  group_by(Village) %>%
-  summarize(MSL = mean(wealth_PCA), sd = sd(wealth_PCA)) %>%
-  ungroup() %>%
-  arrange(MSL)
-MSL$value <- paste(round(MSL$MSL,2), round(MSL$sd,2), sep = (" ("))
-MSL$value <- paste(MSL$value, ")", sep = "")
-MSL$value 
-
-setwd("/Users/emilydarling/Dropbox/4_WCS MacMon/1_MacMon data/R_Emily/Fiji/output")
-write.csv(MSL, "MSL by village.csv", row.names = FALSE)
-
-
-##MAINA CLIMATE - pulled from coral database
-setwd("/Users/emilydarling/Dropbox/4_WCS MacMon/1_MacMon data/R_Emily/Fiji/data")
-env <- read.csv("fromMaina_stressmodel.csv", header = TRUE, stringsAsFactors = FALSE, strip.white = TRUE) 
-head(env)
-nrow(env)
-
-env <- env %>%
-  group_by(Location) %>%
-  summarize(mean_exp = mean(multivariate.stress.model), sd_exp = sd(multivariate.stress.model)) 
-env
-env$value <- paste(round(env$mean_exp,2), round(env$sd_exp,2), sep = (" ("))
-env$value <- paste(env$value, ")", sep = "")
-env$value 
-
-setwd("/Users/emilydarling/Dropbox/4_WCS MacMon/1_MacMon data/R_Emily/Fiji/output")
-write.csv(env, "Maina stressmodel by Location.csv", row.names= FALSE)
-
-
-##Household dependance on livelihoods
-setwd("/Users/emilydarling/Dropbox/4_WCS MacMon/1_MacMon data/R_Emily/Fiji/data")
-d <- read.csv("Household finances.csv", header = TRUE, stringsAsFactors = FALSE, strip.white = TRUE) 
-head(d)
-nrow(d)
-names(d)[1] <- "id"
-names(d)[6] <- "propIncome"
-
-levels(as.factor(d$Type))
-d$Source <- CA(d$Source)
-levels(as.factor(d$Source))
-
-d$Source2 <- ifelse(d$Source == "Bdm collection (fishing)" | d$Source == "Bdm-middlemen" |
-                    d$Source == "Fishing" | d$Source == "Pafco - Tuna Cannery" | d$Source == "Selling Frozen Fish", 
-                      "Fishing", ifelse(d$Source == "Animal Husbandry" | d$Source == "Copra" | d$Source == "Farming" | 
-                      d$Source == "Selling Food/crops", 
-                       "Farming", 
-                        "Other"))
-head(d)
-#select appropriate sources for fishing / ag
-#cast out by id
-#replace NAs with 0s for mean calculations
-#avg across villages
-
-d2 <- d %>%
-  filter(Type == "Income") %>%
-  group_by(Village,id,Source2) %>%
-  summarize(propIncome = mean(propIncome, na.rm = TRUE))
-
-d2_cast <- dcast(d2, Village + id ~ Source2)
-d2_cast[is.na(d2_cast)] <- 0
-head(d2_cast)
-
-d3 <- melt(d2_cast[,1:4], id.var = 1:2)
-head(d3)
-
-d4 <- d3 %>%
-  group_by(Village, variable) %>%
-  summarize(mean_income = mean(value))
-
-d4 <- subset(d4, Village == "Kiobo" | Village =="Navatu" | Village == "Bua-Lomanikoro" |
-               Village == "Dalomo" | Village == "Arovudi" | Village == "Taviya" |
-               Village == "Nabukadra" | Village == "Nadogoloa")
-d4$Village <- factor(d4$Village, levels = c("Kiobo","Navatu","Bua-Lomanikoro","Dalomo","Arovudi","Taviya",
-                                            "Nabukadra","Nadogoloa"))
-levels(drop.levels(as.factor(d4$Village)))
-
-d4$variable <- factor(d4$variable, levels = c("Fishing","Farming"))
-
-d4_cast <- dcast(d4, variable ~ Village)
-d4_cast
-
-setwd("/Users/emilydarling/Dropbox/4_WCS MacMon/1_MacMon data/R_Emily/Fiji/output")
-write.csv(d4_cast, "Income dependence.csv")
-
-
 
 
 
