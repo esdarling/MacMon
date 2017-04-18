@@ -1,23 +1,26 @@
 #Indo fish biomass paper
 
 #read in clean data at site level
-setwd("/Users/emilydarling/Dropbox/4_WCS MacMon/Seascapes/Indonesia MacMon/Indo Biomass paper/for R")
 
-d <- read.csv("DATA_Fish_Transect_All_2015_v5.csv", 
+## TOP 10 binned sites
+setwd("/Users/emilydarling/Dropbox/4_WCS MacMon/Seascapes/Indonesia MacMon/Indo Biomass paper/for R")
+d <- read.csv("top10_transect_DATA_Fish_Transect_All_2015_v5_STP2.csv", 
               header = TRUE, stringsAsFactors = FALSE, strip.white = TRUE) 
 head(d)
 nrow(d)
+names(d)
+str(d)
 
 par(mar = rep(1, 4))
-hist(d$latitude)
-hist(d$longitude)
+d$Lattitude <- as.numeric(d$Lattitude)
+hist(d$Lattitude)
+hist(d$Longitude)
 
-unique(d$Region2)
+unique(d$Region)
 unique(d$Management.Rule)
 unique(d$Area.Status)
 nrow(d)
 names(d)
-#write.csv(d[,c(1:8)], "Site names and GPS from biomass_28Jan2016.csv", row.names =FALSE)
 
 
 #map
@@ -29,15 +32,71 @@ p
 
 #check point locations, fix any errant latitude and longitudes
 names(d)
-p + geom_point(aes(x = longitude, y = latitude, colour = Region2), 
-               size = 2, alpha = 0.25, 
-               position = position_jitter(width = 0.5, height = 0.55), 
-               data = d)
 
+#average up to site
+d2 <- d %>% 
+  group_by(Region,Area.Status,Management.Rule,Remote.Y.N,Site.Name,Lattitude,Longitude) %>% 
+  summarize(biomass = mean(Biomass, na.rm = TRUE))
+
+head(d2)
+p + geom_point(data = d2, aes(x = Longitude, y = Lattitude, size = biomass), 
+               alpha = 0.5, fill = "limegreen", shape = 21, colour = "white",
+               position = position_jitter(width = 0.5, height = 0.55)) + 
+  scale_size_continuous(name = "Biomass \nkg/ha", range = c(2,8))
+
+ggsave("Indomap_top10 map.pdf", height = 10, width=10)
 #missing 37 sites with GPS information
 #first take at fish biomass gradient by sites
 names(d)
 head(d)
+
+
+##################
+## ALL WCS INdo sites
+setwd("/Users/emilydarling/Dropbox/4_WCS MacMon/Seascapes/Indonesia MacMon/Indo Biomass paper/for R")
+d <- read.csv("RAW DATA FISH_All Regions_Final_0616.csv", 
+              header = TRUE, stringsAsFactors = FALSE, strip.white = TRUE) 
+head(d)
+nrow(d)
+names(d)
+str(d)
+
+par(mar = rep(1, 4))
+d$Lattitude <- as.numeric(d$Lattitude)
+hist(d$Lattitude)
+hist(d$Longitude)
+
+unique(d$Region)
+unique(d$Management.Rule)
+unique(d$Area.Status)
+nrow(d)
+names(d)
+
+
+#map
+# pull Indo ggmap and layer with points- of sites
+map <- get_map(location=c(lon = 116, lat = -6), zoom=4, 
+               maptype="satellite", source="google", crop = FALSE)         
+p <- ggmap(map)
+p   
+
+#check point locations, fix any errant latitude and longitudes
+names(d)
+
+#average up to site
+names(d)
+d2 <- d %>% 
+  group_by(Region,Site.Name,Lattitude,Longitude) %>% 
+  summarize(biomass = mean(Average.of.Biomass, na.rm = TRUE))
+head(d2)
+
+p + geom_point(data = d2, aes(x = Longitude, y = Lattitude, size = biomass), 
+               alpha = 0.5, fill = "grey50", shape = 21, colour = "white",
+               position = position_jitter(width = 0.5, height = 0.55)) + 
+  scale_size_continuous(name = "Biomass \nkg/ha", range = c(2,8))
+
+ggsave("Indomap_all sites.pdf", height = 10, width=10)
+######
 
 par(mar=rep(1, 4))
 hist(d$Biomass)
@@ -104,10 +163,31 @@ ggplot(aes(x = Biomass_bins, y = mean.biomass), data = d3) +
 
 #STACKED BAR PLOT!!
 head(d3)
+d3$variable <- recode(d3$variable, 
+                      "'Benthic.invertivore.1'='Invertivore';
+                      'Carnivore.1'='Carnivore';
+                      'Coralivore.1' = 'Corallivore';
+                      'Detritivore.1' = 'Detritivore';
+                      'Herbivore.1'= 'Herbivore';
+                      'Omnivore.1' = 'Omnivore';
+                      'Planktivore.1' = 'Planktivore'")
+unique(d3$variable)
+head(d3)
+unique(d3$Biomass_bins)
+
+
 ggplot(aes(x = Biomass_bins, y = mean.biomass), 
        data = subset(d3, variable != "Biomass")) +
-  geom_bar(aes(fill = variable), stat = "identity")
-
+  geom_bar(aes(fill = variable), stat = "identity") +
+  scale_x_discrete(breaks = seq(1,10,1), labels = seq(1,10,1)) +
+  theme_bw(base_size =18) +
+  scale_x_discrete(limits = c(1,10)) +
+  labs(fill = "Trophic group") +
+  ylab("Biomass, kg/ha") +
+  xlab("Biomass bins")
+ggsave("stacked biomass.pdf", width = 8, height =4)
+  
+getwd()
 #Which sites are in bin 10? 
 head(d)
 bin10 <- subset(d, Biomass_bins == 10)
@@ -139,11 +219,18 @@ ggplot(aes(x = Area.Status, y = mean.value),
 bin1_10 <- subset(d, Biomass_bins == 1 | Biomass_bins == 10)
 nrow(bin1_10)
 
+#order for bin 10 on top
+bin1_10 <- bin1_10 %>%
+  arrange(Biomass_bins)
+head(bin1_10)
+
 p + geom_point(aes(x = longitude, y = latitude, fill = as.factor(Biomass_bins)), 
                size = 3, alpha = 0.5, shape = 21, colour = "black",
                position = position_jitter(width = 0.5, height = 0.55), 
                data = bin1_10) +
   scale_fill_manual("Biomass bin", values = c("red","white"))
+ggsave("bin1_10 map.pdf", height=10,width=10)
+
 
 #management / area status across bins
 head(d2)
