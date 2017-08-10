@@ -1,5 +1,24 @@
 #Budget calculations
 
+
+#reimbursement pivot table
+setwd("/Users/emilydarling/Desktop")
+d <- read.csv("macmon misc.csv", 
+              header = TRUE, stringsAsFactors = FALSE, strip.white = TRUE) 
+head(d)
+nrow(d)
+
+d[11,]
+
+d2 <- d %>% 
+  group_by(wbs,fund,grant,gl) %>% 
+  summarize(sum = sum(usd))
+d2
+
+sum(d2$sum)
+
+write.csv(d2[,c(5,4,1:3)], "macmon output.csv")
+
 #Year 2 - pivot table
 #From Victoria's pivot table 
 setwd("/Users/emilydarling/Dropbox/5_MacMon_Finance/Budgets/Quarterly reports")
